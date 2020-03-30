@@ -1,1 +1,1 @@
-To build, first clone Assimp repo into same folder as this repo. Then clone libigl into this repo. Then CMake should find everything.
+Clone Assimp repo next to this repo, init submodules and CMake does the rest.
