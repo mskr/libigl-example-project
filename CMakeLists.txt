@@ -19,6 +19,6 @@ set_property(GLOBAL PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/e
 # Add your project files
 add_subdirectory("../assimp" "../assimp/build") # folder where a dependent CMakeLists.txt is
 include_directories("../assimp/include" "../assimp/build/include")
-file(GLOB SRCFILES *.cpp)
+file(GLOB SRCFILES main.cpp)
 add_executable(${PROJECT_NAME}_bin ${SRCFILES})
 target_link_libraries(${PROJECT_NAME}_bin igl::core igl::opengl_glfw igl::triangle assimp) # magically finds assimp/build/code/Debug/assimp-vc141-mtd.lib
