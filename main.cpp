@@ -16,8 +16,6 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 
-#define DESKTOP "C:/Users/Marius/Desktop/"
-
 using namespace Eigen;
 using u32 = std::uint32_t;
 
@@ -114,7 +112,7 @@ VectorXf computeSignedDistance(MatrixXd& P, MatrixXd& V, MatrixXi F) {
 }
 
 float* openVolume(std::string name, u32* res) {
-    std::ifstream rawFile(DESKTOP + name + ".raw", std::ios::binary);
+    std::ifstream rawFile(name + ".raw", std::ios::binary);
     float* data = new float[res[0] * res[1] * res[2]];
     rawFile.read(reinterpret_cast<char*>(data), res[0] * res[1] * res[2] * sizeof(float));
     return data;
@@ -124,7 +122,7 @@ void saveVolume(std::string name, const void* data, float min, float max, u32* r
 
     // Write inviwo file format
 
-    std::ofstream datFile(DESKTOP + name + ".dat");
+    std::ofstream datFile(name + ".dat");
     datFile << "Rawfile: " + name + ".raw" << std::endl;
 
     if (zMajor) // need to swizzle because of voxel order
@@ -150,7 +148,7 @@ void saveVolume(std::string name, const void* data, float min, float max, u32* r
     }
     //datFile << "Offset: 0 0 0" << std::endl; // automatically chosen by inviwo
 
-    std::ofstream rawFile(DESKTOP + name + ".raw", std::ios::binary);
+    std::ofstream rawFile(name + ".raw", std::ios::binary);
     rawFile.write(reinterpret_cast<const char*>(data), res[0] * res[1] * res[2] * sizeof(float));
 }
 
@@ -182,7 +180,7 @@ void saveVolume(std::string name, const void* data, float min, float max, u32* r
 
 
 
-
+// This function is the actual main function.
 void processMesh(aiMesh* mesh) {
     printf("Process mesh \"%s\"\n\
     Vertices: %u\n\
@@ -208,6 +206,8 @@ void processMesh(aiMesh* mesh) {
         F(i, 2) = mesh->mFaces[i].mIndices[2];
     }
 
+    // These experiments are not needed anymore, but left here for documentation.
+
     //precomputeStructures(V, F);
 
     //printf("Decimate mesh");
@@ -232,7 +232,7 @@ void processMesh(aiMesh* mesh) {
     extent[1] = double(mesh->mAABB.mMax.y - mesh->mAABB.mMin.y);
     extent[2] = double(mesh->mAABB.mMax.z - mesh->mAABB.mMin.z);
     const double margin = 5.0;
-    const double scale = 0.5;
+    const double scale = 0.5; // CONTROL COMPUTATION SPEED HERE!
     u32 res[3];
     res[0] = u32((extent[0] + margin * 2) * scale);
     res[1] = u32((extent[1] + margin * 2) * scale);
@@ -248,9 +248,11 @@ void processMesh(aiMesh* mesh) {
     // Compute signed distance
     VectorXf d = computeSignedDistance(P, V, F);
 
-    //printf("Flood fill NaNs\n");
+    printf("Flood fill NaNs\n");
     igl::flood_fill(Vector3i(res[2], res[1], res[0]), d);
 
+    // Uncomment to reorder voxels in a previously saved volume.
+    // Note the hardcoded filenames.
     //float* data = openVolume("phantom-sdf-volume", res);
     //float* xdata = reorderVolumePoints(data, res);
     //float min = std::numeric_limits<float>::infinity();
@@ -260,7 +262,6 @@ void processMesh(aiMesh* mesh) {
     //    if (xdata[i] > max) max = xdata[i];
     //}
     //saveVolume("phantom-sdf-volume-x", xdata, min, max, res, step, false);
-
 
     const float* sdfVolume = d.data(); // order refers to P
 
@@ -304,23 +305,20 @@ void traverseScene(const aiScene* scene, aiNode* node) {
         traverseScene(scene, node->mChildren[i]);
 }
 
-int main(int argc, char* argv[])
+int main(int nargs, char** args)
 {
     using namespace Eigen;
     using namespace std;
 
-    cout << "Usage:" << endl;
-    cout << "[space]  toggle showing surface." << endl;
-    cout << "'.'/','  push back/pull forward slicing plane." << endl;
-    cout << endl;
-
-    // Load mesh: (V,T) tet-mesh of convex hull, F contains original surface
-    // triangles
-    //igl::readMESH(DESKTOP "libigl/tutorial/data/bunny.mesh", V, T, F);
+    if (nargs < 2) {
+        std::cout << "Convert mesh to SDF on regular grid in 3D." << std::endl;
+        std::cout << "Please pass mesh file name." << std::endl;
+        return 1;
+    }
 
     Assimp::Importer importer;
 
-    const aiScene* scene = importer.ReadFile(DESKTOP "ASL_Phantom_ohne_Halterung.stl",
+    const aiScene* scene = importer.ReadFile(args[1],
         aiProcess_Triangulate |
         aiProcess_SortByPType |
         aiProcess_GenBoundingBoxes);
@@ -332,47 +330,5 @@ int main(int argc, char* argv[])
 
     traverseScene(scene, scene->mRootNode);
 
-    // Plot the generated mesh
-    //igl::opengl::glfw::Viewer viewer;
-    //update_visualization(viewer);
-    //viewer.callback_key_down = &key_down;
-    //viewer.data().show_lines = false;
-    //viewer.launch();
+    // See processMesh() for actual work
 }
-
-/*
-#include <igl/opengl/glfw/Viewer.h>
-
-int main(int argc, char *argv[])
-{
-  // Inline mesh of a cube
-  const Eigen::MatrixXd V= (Eigen::MatrixXd(8,3)<<
-    0.0,0.0,0.0,
-    0.0,0.0,1.0,
-    0.0,1.0,0.0,
-    0.0,1.0,1.0,
-    1.0,0.0,0.0,
-    1.0,0.0,1.0,
-    1.0,1.0,0.0,
-    1.0,1.0,1.0).finished();
-  const Eigen::MatrixXi F = (Eigen::MatrixXi(12,3)<<
-    1,7,5,
-    1,3,7,
-    1,4,3,
-    1,2,4,
-    3,8,7,
-    3,4,8,
-    5,7,8,
-    5,8,6,
-    1,5,6,
-    1,6,2,
-    2,6,8,
-    2,8,4).finished().array()-1;
-
-  // Plot the mesh
-  igl::opengl::glfw::Viewer viewer;
-  viewer.data().set_mesh(V, F);
-  viewer.data().set_face_based(true);
-  viewer.launch();
-}
-*/
